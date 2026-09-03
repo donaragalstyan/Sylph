@@ -1,0 +1,16 @@
+{
+  "name": "sylph",
+  "private": true,
+  "workspaces": [
+    "backend"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "backend:dev": "pnpm --filter @sylph/backend dev",
+    "backend:typecheck": "pnpm --filter @sylph/backend typecheck",
+    "backend:lint": "pnpm --filter @sylph/backend lint",
+    "backend:test": "pnpm --filter @sylph/backend test"
+  }
+}

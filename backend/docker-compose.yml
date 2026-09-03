@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sylph-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sylph
+      POSTGRES_PASSWORD: sylph
+      POSTGRES_DB: sylph
+    ports:
+      - "5432:5432"
+    volumes:
+      - sylph-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  sylph-postgres-data:

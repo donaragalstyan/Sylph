@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AuthProvider {
+  APPLE
+  GOOGLE
+}
+
+/// A Sylph account. Deliberately holds no provider-specific fields — see AuthIdentity.
+/// docs/PRODUCT_AND_COMPLIANCE.md §7 explains why authentication is modeled this way.
+model User {
+  id          String    @id @default(uuid())
+  displayName String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  identities AuthIdentity[]
+  sessions   Session[]
+
+  @@map("users")
+}
+
+/// One proof of identity (Apple or Google) linked to a User. A User may hold more than one
+/// AuthIdentity; identities are never auto-linked by matching email across providers.
+model AuthIdentity {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  provider       AuthProvider
+  providerUserId String
+  email          String?
+  emailVerified  Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  lastUsedAt     DateTime     @default(now())
+  revokedAt      DateTime?
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("auth_identities")
+}
+
+/// A Sylph-issued session, unrelated to which provider the user authenticated with.
+/// `refreshTokenHash` stores a SHA-256 hash of the opaque refresh token, never the raw value.
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+  refreshTokenHash String    @unique
+  deviceInfo       String?
+  /// Informational only ("ios" | "android") — never read by authorization logic.
+  platform         String?
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  @@index([userId])
+  @@map("sessions")
+}
