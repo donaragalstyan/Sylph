@@ -12,5 +12,23 @@ services:
     volumes:
       - sylph-postgres-data:/var/lib/postgresql/data
 
+  # Local stand-in for the S3-compatible object storage described in
+  # docs/PRODUCT_AND_COMPLIANCE.md §3 — private by default, accessed only via signed URLs.
+  # Any S3-compatible provider (AWS S3, Cloudflare R2, ...) works the same way in production.
+  minio:
+    image: minio/minio:latest
+    container_name: sylph-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: sylph-dev
+      MINIO_ROOT_PASSWORD: sylph-dev-secret
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - sylph-minio-data:/data
+
 volumes:
   sylph-postgres-data:
+  sylph-minio-data:

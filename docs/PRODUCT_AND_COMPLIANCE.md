@@ -219,6 +219,13 @@ for identity verification, not for any ongoing access to Apple/Google APIs on th
 - Apple: backend verifies the native SDK's `identityToken` (a signed JWT) against Apple's public
   keys (`aud` = our bundle/service ID, `iss` = `https://appleid.apple.com`). No authorization-code
   exchange, no Apple private-key/client-secret JWT signing, no stored Apple token.
+  **Nonce validated server-side, per Apple's Sign in with Apple guidance:** the client generates
+  a cryptographically random raw nonce per attempt, SHA-256-hashes it, and passes the hash to
+  `AppleAuthentication.signInAsync()`; Apple embeds that hash verbatim as the token's `nonce`
+  claim. The client sends the identityToken *and* the original raw nonce to us; the backend
+  recomputes the hash and requires an exact match — a token with no `nonce` claim at all is
+  rejected too, since we always request one (`src/auth/apple.ts`, `hashAppleNonce` /
+  `verifyAppleIdentityToken`). This binds the token to the specific attempt that produced it.
 - Google: backend verifies the SDK's `idToken` the same way, against Google's public keys
   (`aud` = our Google OAuth client ID). No server auth code requested, no Google client secret,
   no stored Google token.

@@ -14,9 +14,12 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:validate": "prisma validate",
     "db:up": "docker compose up -d db",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "infra:up": "docker compose up -d"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.716.0",
+    "@aws-sdk/s3-request-presigner": "^3.716.0",
     "@fastify/rate-limit": "^10.2.2",
     "@prisma/client": "^6.2.1",
     "dotenv": "^16.4.7",

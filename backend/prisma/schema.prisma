@@ -12,6 +12,12 @@ enum AuthProvider {
   GOOGLE
 }
 
+/// Reserved for Phase 3. Only PRIVATE is ever set or accepted by Phase 1's API — see
+/// docs/PRODUCT_AND_COMPLIANCE.md §4 for why the column exists ahead of the feature.
+enum Visibility {
+  PRIVATE
+}
+
 /// A Sylph account. Deliberately holds no provider-specific fields — see AuthIdentity.
 /// docs/PRODUCT_AND_COMPLIANCE.md §7 explains why authentication is modeled this way.
 model User {
@@ -21,8 +27,9 @@ model User {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  identities AuthIdentity[]
-  sessions   Session[]
+  identities  AuthIdentity[]
+  sessions    Session[]
+  closetItems ClosetItem[]
 
   @@map("users")
 }
@@ -62,4 +69,55 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+/// A single piece of clothing in a user's private digital closet. `category` and `season` /
+/// `styleTags` are plain strings, validated against an app-level allow-list (src/closet/
+/// taxonomy.ts) rather than a Postgres enum — adding a new category or style tag later is an
+/// application change, not a migration. See docs/PRODUCT_AND_COMPLIANCE.md §4.
+model ClosetItem {
+  id          String     @id @default(uuid())
+  ownerId     String
+  owner       User       @relation(fields: [ownerId], references: [id])
+  name        String
+  category    String
+  subcategory String?
+  colors      String[]   @default([])
+  brand       String?
+  pattern     String?
+  material    String?
+  season      String[]   @default([])
+  styleTags   String[]   @default([])
+  size        String?
+  notes       String?
+  favorite    Boolean    @default(false)
+  visibility  Visibility @default(PRIVATE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  images ClosetItemImage[]
+
+  @@index([ownerId])
+  @@map("closet_items")
+}
+
+/// One photo of a ClosetItem, stored privately in object storage. `storageKey` is never
+/// exposed to a client directly — only a short-lived signed URL derived from it. `contentHash`
+/// is client-reported and not yet independently verified; it exists so Phase 1.5 AI analysis
+/// can key its cache on "have we analyzed this exact image before" (docs §4) — nothing reads it
+/// in Phase 1.
+model ClosetItemImage {
+  id           String     @id @default(uuid())
+  closetItemId String
+  closetItem   ClosetItem @relation(fields: [closetItemId], references: [id], onDelete: Cascade)
+  storageKey   String     @unique
+  contentHash  String?
+  width        Int?
+  height       Int?
+  isPrimary    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  @@index([closetItemId])
+  @@map("closet_item_images")
 }

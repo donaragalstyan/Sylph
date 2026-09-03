@@ -11,7 +11,7 @@ vi.mock("../src/auth/apple.js", async () => {
   );
   return {
     ...actual,
-    verifyAppleIdentityToken: vi.fn(async (token: string) => {
+    verifyAppleIdentityToken: vi.fn(async (token: string, _rawNonce: string) => {
       if (token === "invalid") throw new actual.InvalidAppleIdentityTokenError("bad token");
       return JSON.parse(token);
     }),
@@ -33,6 +33,11 @@ vi.mock("../src/auth/google.js", async () => {
 
 const { buildApp } = await import("../src/app.js");
 
+// Route-level tests mock verifyAppleIdentityToken entirely, so the exact nonce value is
+// irrelevant here — it only needs to satisfy the route's zod schema (min length 16). Real
+// nonce hashing/matching is covered against the unmocked function in auth.apple.test.ts.
+const TEST_RAW_NONCE = "test-raw-nonce-0123456789abcdef";
+
 function appleToken(providerUserId: string, email: string | null = null) {
   return JSON.stringify({ providerUserId, email, emailVerified: !!email });
 }
@@ -52,7 +57,11 @@ describe("auth flow", () => {
     const res = await app.inject({
       method: "POST",
       url: "/v1/auth/apple",
-      payload: { identityToken: appleToken("apple-1", "a@example.com"), displayName: "Dana" },
+      payload: {
+        identityToken: appleToken("apple-1", "a@example.com"),
+        rawNonce: TEST_RAW_NONCE,
+        displayName: "Dana",
+      },
     });
 
     expect(res.statusCode).toBe(200);
@@ -66,12 +75,12 @@ describe("auth flow", () => {
     const first = await app.inject({
       method: "POST",
       url: "/v1/auth/apple",
-      payload: { identityToken: appleToken("apple-2", "b@example.com") },
+      payload: { identityToken: appleToken("apple-2", "b@example.com"), rawNonce: TEST_RAW_NONCE },
     });
     const second = await app.inject({
       method: "POST",
       url: "/v1/auth/apple",
-      payload: { identityToken: appleToken("apple-2", "b@example.com") },
+      payload: { identityToken: appleToken("apple-2", "b@example.com"), rawNonce: TEST_RAW_NONCE },
     });
 
     expect(first.json().user.id).toBe(second.json().user.id);
@@ -82,7 +91,7 @@ describe("auth flow", () => {
     const apple = await app.inject({
       method: "POST",
       url: "/v1/auth/apple",
-      payload: { identityToken: appleToken("apple-3", shared) },
+      payload: { identityToken: appleToken("apple-3", shared), rawNonce: TEST_RAW_NONCE },
     });
     const google = await app.inject({
       method: "POST",
@@ -97,7 +106,7 @@ describe("auth flow", () => {
     const res = await app.inject({
       method: "POST",
       url: "/v1/auth/apple",
-      payload: { identityToken: "invalid" },
+      payload: { identityToken: "invalid", rawNonce: TEST_RAW_NONCE },
     });
     expect(res.statusCode).toBe(401);
   });
@@ -109,6 +118,22 @@ describe("auth flow", () => {
       payload: {},
     });
     expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects an Apple sign-in with a missing or too-short rawNonce", async () => {
+    const missing = await app.inject({
+      method: "POST",
+      url: "/v1/auth/apple",
+      payload: { identityToken: appleToken("apple-nonce-1", "n1@example.com") },
+    });
+    expect(missing.statusCode).toBe(400);
+
+    const tooShort = await app.inject({
+      method: "POST",
+      url: "/v1/auth/apple",
+      payload: { identityToken: appleToken("apple-nonce-2", "n2@example.com"), rawNonce: "short" },
+    });
+    expect(tooShort.statusCode).toBe(400);
   });
 
   it("GET /v1/me requires a valid access token", async () => {
@@ -127,7 +152,11 @@ describe("auth flow", () => {
     const signIn = await app.inject({
       method: "POST",
       url: "/v1/auth/apple",
-      payload: { identityToken: appleToken("apple-4", "d@example.com"), displayName: "Riley" },
+      payload: {
+        identityToken: appleToken("apple-4", "d@example.com"),
+        rawNonce: TEST_RAW_NONCE,
+        displayName: "Riley",
+      },
     });
     const { accessToken } = signIn.json();
 
@@ -167,7 +196,7 @@ describe("auth flow", () => {
     const signIn = await app.inject({
       method: "POST",
       url: "/v1/auth/apple",
-      payload: { identityToken: appleToken("apple-5", "e@example.com") },
+      payload: { identityToken: appleToken("apple-5", "e@example.com"), rawNonce: TEST_RAW_NONCE },
     });
     const { refreshToken } = signIn.json();
 
@@ -200,7 +229,7 @@ describe("auth flow", () => {
     const signIn = await app.inject({
       method: "POST",
       url: "/v1/auth/apple",
-      payload: { identityToken: appleToken("apple-6", "f@example.com") },
+      payload: { identityToken: appleToken("apple-6", "f@example.com"), rawNonce: TEST_RAW_NONCE },
     });
     const { accessToken, refreshToken } = signIn.json();
 

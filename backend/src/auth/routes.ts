@@ -16,6 +16,10 @@ import { prisma } from "../db.js";
 
 const appleSignInSchema = z.object({
   identityToken: z.string().min(1),
+  // The raw, unhashed, cryptographically random nonce the client generated for this attempt
+  // before hashing it and passing the hash to AppleAuthentication.signInAsync(). See
+  // src/auth/apple.ts for the full flow this validates against.
+  rawNonce: z.string().min(16).max(256),
   displayName: z.string().trim().min(1).max(80).optional(),
 });
 
@@ -42,7 +46,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 
       let identity;
       try {
-        identity = await verifyAppleIdentityToken(parsed.data.identityToken);
+        identity = await verifyAppleIdentityToken(parsed.data.identityToken, parsed.data.rawNonce);
       } catch (err) {
         if (err instanceof InvalidAppleIdentityTokenError) {
           return reply.code(401).send({ error: "invalid_token", message: err.message });
