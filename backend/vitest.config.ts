@@ -19,6 +19,10 @@ export default defineConfig({
       S3_SECRET_ACCESS_KEY: TEST_S3_CONFIG.secretAccessKey,
       S3_FORCE_PATH_STYLE: "true",
       PORT: "3999",
+      // Explicit, not just relying on the zod default — a test run must never silently inherit
+      // ENABLE_DEV_AUTH=true from the ambient shell/.env (see test/devAuth.test.ts for why this
+      // matters: it's the whole thing being gated).
+      ENABLE_DEV_AUTH: "false",
     },
     hookTimeout: 30000,
     fileParallelism: false,

@@ -16,6 +16,13 @@ const envSchema = z.object({
     .transform((v) => v === "true"),
   PORT: z.coerce.number().int().positive().default(3000),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  // Gates a non-provider-verified sign-in route used only for local mobile-app smoke testing
+  // (Step 3) where a real Apple/Google developer account isn't wired up yet. Must never be
+  // "true" outside local dev — see src/auth/devRoutes.ts and docs/PRODUCT_AND_COMPLIANCE.md §7.
+  ENABLE_DEV_AUTH: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 export type Env = z.infer<typeof envSchema>;
